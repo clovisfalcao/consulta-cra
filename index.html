@@ -232,13 +232,13 @@ footer{
 
     <div class="grafico">
       <h3>Distribuição geral do CRA no curso <span class="selo">estimado</span></h3>
-      <p class="legenda">Cada barra mostra quantos estudantes têm CRA dentro daquela faixa, considerando todo o corpo discente do curso, inclusive os ingressantes ainda sem CRA apurado. A linha tracejada marca a posição do valor digitado.</p>
+      <p class="legenda">Cada barra mostra quantos estudantes têm CRA dentro daquela faixa. Registros com CRA 0,00 são separados da visualização, mas continuam considerados nos resultados gerais.<span id="notaZerosHist"></span></p>
       <div id="gHistograma"></div>
     </div>
 
     <div class="grafico">
       <h3>Curva acumulada <span class="selo">estimado</span></h3>
-      <p class="legenda">Percentual estimado de estudantes com CRA menor ou igual a cada valor. O ponto marca onde o valor digitado se encontra.</p>
+      <p class="legenda">Percentual estimado de estudantes com CRA menor ou igual a cada valor. O CRA 0,00 é separado da visualização para facilitar a leitura, mas continua considerado no cálculo.<span id="notaZerosAcum"></span></p>
       <div id="gAcumulada"></div>
     </div>
 
@@ -282,7 +282,7 @@ footer{
    - linhas sem ano válido entram no grupo "Ingresso anterior";
    - grupos de ano com menos de TAMANHO_MINIMO_GRUPO estudantes são
      fundidos com o grupo vizinho mais próximo.
-   Os dados de exemplo abaixo são FICTÍCIOS e devem ser substituídos.
+   Os dados abaixo são reais, agregados e anonimizados.
    ===================================================================== */
 const DADOS_CSV = `ano,cra
 2022,9.76
@@ -984,11 +984,14 @@ const ANO_MINIMO = 2017;              // anos abaixo disso viram "Ingresso anter
 // confortável acima deste piso. Ajuste apenas se algum ano vier com
 // número de registros muito menor que o esperado.
 const TAMANHO_MINIMO_GRUPO = 15;      // grupos menores são fundidos ao vizinho
+const LIMIAR_ZERO_ULTIMO_ANO_SEM_COMPARACAO = 0.90;
+const LIMIAR_CRA_ULTIMO_ANO_COMPARAVEL = 0.25;
 
 /* ============================ LEITURA ============================ */
 
 function gerarExemplo(){
-  // Gera notas fictícias plausíveis só para a demonstração visual.
+  // Gera notas de demonstração apenas se o bloco de dados for substituído
+  // pelo marcador DADOS_DE_DEMONSTRACAO em uma cópia de teste.
   const linhas=[];let semente=42;
   const rnd=()=>{semente=(semente*16807)%2147483647;return semente/2147483647};
   const anos=[2019,2020,2021,2022,2023,2024,2025];
@@ -1005,7 +1008,7 @@ function gerarExemplo(){
 }
 
 function lerCSV(texto){
-  if(texto.includes("DADOS_DE_EXEMPLO_FICTICIOS")) texto=gerarExemplo();
+  if(texto.includes("DADOS_DE_DEMONSTRACAO")) texto=gerarExemplo();
   const anoAtual=new Date().getFullYear();
   const registros=[];
   texto.split(/\r?\n/).forEach(linha=>{
@@ -1065,6 +1068,41 @@ function construirGrupos(registros){
   return grupos;
 }
 
+function diagnosticarUltimoAno(registros){
+  const anos=[...new Set(registros.map(r=>r.ano).filter(a=>a!==null))].sort((a,b)=>a-b);
+  if(anos.length===0) return null;
+  const ano=anos[anos.length-1];
+  const doAno=registros.filter(r=>r.ano===ano);
+  const total=doAno.length;
+  const zeros=doAno.filter(r=>Math.abs(r.cra)<1e-9).length;
+  const positivos=total-zeros;
+  const proporcaoZero=zeros/total;
+  const proporcaoPositiva=positivos/total;
+  /*
+     Regra da turma mais recente:
+     - todos os registros, inclusive CRA 0,00, entram no cálculo geral do curso
+       e do percentil 90;
+     - quando o último ano tem mais de 90% de CRA 0,00, a turma ainda está
+       sem histórico suficiente de CRA e fica fora das comparações por turma;
+     - quando ao menos 25% da turma mais recente já tem CRA diferente de zero,
+       a turma entra nas comparações, mas pode receber aviso curto porque ainda
+       há estudantes com CRA 0,00 por falta de notas consolidadas.
+     Zeros em anos anteriores permanecem como CRA real.
+  */
+  return {
+    ano,total,zeros,positivos,proporcaoZero,proporcaoPositiva,
+    semComparacao: proporcaoZero>LIMIAR_ZERO_ULTIMO_ANO_SEM_COMPARACAO ||
+      proporcaoPositiva<LIMIAR_CRA_ULTIMO_ANO_COMPARAVEL,
+    comparacaoParcial: proporcaoZero>0 &&
+      proporcaoPositiva>=LIMIAR_CRA_ULTIMO_ANO_COMPARAVEL
+  };
+}
+
+function registrosParaComparacaoPorAno(registros, diagnostico){
+  if(!diagnostico||!diagnostico.semComparacao) return registros;
+  return registros.filter(r=>r.ano!==diagnostico.ano);
+}
+
 function rotuloGrupo(g){
   if(g.anos.length===0) return "Ingresso anterior a "+ANO_MINIMO;
   const a=g.anos[0],b=g.anos[g.anos.length-1];
@@ -1105,6 +1143,20 @@ function valorDeCorte(vOrdenado,p){
   return vOrdenado[base]+(vOrdenado[Math.min(base+1,n-1)]-vOrdenado[base])*resto;
 }
 
+function primeiroValorAcima(vOrdenado,limite){
+  for(const x of vOrdenado) if(x>limite) return x;
+  return null;
+}
+
+function formatarCRA(valor){
+  return valor.toFixed(2).replace(".",",");
+}
+
+function textoRegistrosZero(total){
+  if(total<=0) return "";
+  return " ("+total+" "+(total===1?"registro":"registros")+" com CRA 0,00).";
+}
+
 /* ============================ GRÁFICOS ============================ */
 /* SVG desenhado sem biblioteca, para funcionar sem rede. */
 
@@ -1119,13 +1171,13 @@ function svgBase(largura,altura){
   return el("svg",{viewBox:`0 0 ${largura} ${altura}`,role:"img"});
 }
 
-function desenharHistograma(container,todas,nota){
+function desenharHistograma(container,notasVisual,nota){
   container.innerHTML="";
   const L=760,A=300,mE=44,mD=16,mT=14,mB=34;
   const svg=svgBase(L,A);
   const nBins=20,min=0,max=10,passo=(max-min)/nBins;
   const bins=new Array(nBins).fill(0);
-  todas.forEach(v=>{let i=Math.min(nBins-1,Math.floor((v-min)/passo));bins[i]++;});
+  notasVisual.forEach(v=>{let i=Math.min(nBins-1,Math.floor((v-min)/passo));bins[i]++;});
   const maxBin=Math.max(...bins,1);
   const x=v=>mE+(v-min)/(max-min)*(L-mE-mD);
   const y=c=>A-mB-(c/maxBin)*(A-mT-mB);
@@ -1152,7 +1204,7 @@ function desenharHistograma(container,todas,nota){
   container.appendChild(svg);
 }
 
-function desenharAcumulada(container,vOrdenado,nota){
+function desenharAcumulada(container,vOrdenado,notasVisual,nota){
   container.innerHTML="";
   const L=760,A=300,mE=52,mD=16,mT=14,mB=34;
   const svg=svgBase(L,A);
@@ -1168,9 +1220,10 @@ function desenharAcumulada(container,vOrdenado,nota){
   }
   svg.appendChild(el("text",{x:(mE+L-mD)/2,y:A-2,"text-anchor":"middle",class:"tick-txt"},"CRA"));
   // curva
+  const inicioCurva=notasVisual.length>0?notasVisual[0]:0;
   let d="";
   for(let i=0;i<=200;i++){
-    const v=i/20,p=percentil(vOrdenado,v);
+    const v=inicioCurva+(10-inicioCurva)*(i/200),p=percentil(vOrdenado,v);
     d+=(i===0?"M":"L")+x(v).toFixed(1)+" "+y(p).toFixed(1)+" ";
   }
   svg.appendChild(el("path",{d,fill:"none",stroke:"#0B3358","stroke-width":"2.4"}));
@@ -1250,12 +1303,16 @@ function desenharEvolucao(container,grupos){
 /* ============================ INTERFACE ============================ */
 
 const registros=lerCSV(DADOS_CSV);
-const registrosComCRA=registros.filter(r=>r.cra>0);
-const grupos=construirGrupos(registrosComCRA);
+const diagnosticoUltimoAno=diagnosticarUltimoAno(registros);
+const registrosComparacao=registrosParaComparacaoPorAno(registros,diagnosticoUltimoAno);
+const grupos=construirGrupos(registrosComparacao);
 const todasNotas=registros.map(r=>r.cra).sort((a,b)=>a-b);
+const notasGrafico=todasNotas.filter(v=>v>0);
+const totalZeros=todasNotas.length-notasGrafico.length;
 
 const $=id=>document.getElementById(id);
 const selectAno=$("selectAno");
+["notaZerosHist","notaZerosAcum"].forEach(id=>$(id).textContent=textoRegistrosZero(totalZeros));
 (function popularSelect(){
   const op0=document.createElement("option");
   op0.value="";op0.textContent="Selecione, se desejar";
@@ -1276,6 +1333,8 @@ function grupoDaMatricula(mat){
   if(!(ano>=ANO_MINIMO&&ano<=anoAtual)){
     return {erro:"Não foi possível estimar o ano a partir dessa matrícula. Este cálculo só reconhece matrículas cujos quatro primeiros dígitos correspondam ao ano de ingresso (padrão adotado a partir de "+ANO_MINIMO+"). Matrículas anteriores a esse padrão, inclusive as de numeração especial, devem ter o ano escolhido manualmente no campo ao lado."};
   }
+  if(diagnosticoUltimoAno&&diagnosticoUltimoAno.semComparacao&&ano===diagnosticoUltimoAno.ano)
+    return {semComparacao:true,ano};
   const g=grupos.find(gr=>gr.anos.includes(ano));
   if(!g) return {erro:"O ano "+ano+" não consta na base atual. Escolha o ano manualmente no campo ao lado."};
   return {grupo:g};
@@ -1314,6 +1373,7 @@ function consultar(){
   const notaFormatada=nota.toFixed(2).replace(".",",");
   $("notaEntendida").innerHTML="CRA considerado: <strong>"+notaFormatada+"</strong>. Se não for o valor correto, corrija o campo e consulte novamente.";
   let grupoAluno=null;
+  let anoAlunoSemComparacao=null;
   const avisosLimite=[];
   const mat=$("inputMatricula").value.trim();
   const anoManual=selectAno.value;
@@ -1325,16 +1385,25 @@ function consultar(){
       $("campoAnoManual").style.display="block";
       msg.textContent=r.erro;msg.classList.add("visivel");
       avisosLimite.push("Não foi possível estimar sua turma de ingresso a partir da matrícula informada. O resultado abaixo mostra apenas a posição no curso como um todo. Para comparar com sua turma, escolha o ano manualmente no campo que apareceu no formulário e consulte novamente.");
+    }else if(r.semComparacao){
+      anoAlunoSemComparacao=r.ano;
     }else grupoAluno=r.grupo;
   }
   // A matrícula digitada não é usada para mais nada nem armazenada.
   $("inputMatricula").value=mat; // permanece apenas no campo, sob controle do usuário
 
-  if(grupoAluno&&(grupoAluno.anos.length>1||grupoAluno.incluiAnterior)){
-    avisosLimite.push("Sua turma de ingresso ("+grupoAluno.rotulo+") foi reunida com outra(s) turma(s) nesta comparação, porque o número de CRA já apurados nela, isoladamente, era pequeno demais para uma estimativa segura e anônima. O resultado abaixo reflete o conjunto reunido, não apenas os colegas do seu ano.");
+  if(anoAlunoSemComparacao){
+    avisosLimite.push("Sua turma ainda não tem histórico suficiente de CRA para comparação. Abaixo aparece sua posição estimada no curso.");
+  }else if(diagnosticoUltimoAno&&diagnosticoUltimoAno.semComparacao){
+    avisosLimite.push("A comparação por turma não inclui "+diagnosticoUltimoAno.ano+", porque essa turma ainda não tem histórico suficiente de CRA.");
+  }else if(diagnosticoUltimoAno&&diagnosticoUltimoAno.comparacaoParcial){
+    avisosLimite.push("A turma mais recente foi incluída na comparação, mas ainda possui estudantes com CRA 0,00 porque parte das notas ainda não foi consolidada.");
   }
-  if(Math.abs(nota)<1e-9){
-    avisosLimite.push("Um CRA de 0,00 normalmente indica que o coeficiente ainda não foi apurado, por ingresso recente no curso. A posição estimada abaixo pode não ter significado real nesse caso.");
+  if(grupoAluno&&(grupoAluno.anos.length>1||grupoAluno.incluiAnterior)){
+    avisosLimite.push("Sua turma de ingresso ("+grupoAluno.rotulo+") foi reunida com outra(s) turma(s) nesta comparação, para preservar uma estimativa segura e anônima. O resultado abaixo reflete o conjunto reunido, não apenas os colegas do seu ano.");
+  }
+  if(Math.abs(nota)<1e-9&&!anoAlunoSemComparacao){
+    avisosLimite.push("Um CRA de 0,00 pode indicar que o coeficiente ainda não foi formado. A posição estimada abaixo pode não ter significado real nesse caso.");
   }
   const avisoEl=$("avisoCasoLimite");
   if(avisosLimite.length>0){
@@ -1347,6 +1416,7 @@ function consultar(){
   const pGeral=percentil(todasNotas,nota);
   const posGeral=posicaoAproximada(todasNotas,nota);
   const corte90=valorDeCorte(todasNotas,90);
+  const primeiraNotaAcimaCorte=primeiroValorAcima(todasNotas,corte90);
   const acimaDoCorte=nota>corte90;
   const cartoes=$("cartoes");cartoes.innerHTML="";
 
@@ -1359,8 +1429,9 @@ function consultar(){
     "Acima do percentil 90 (critério de láurea)",
     acimaDoCorte?"Sim":"Não",
     "Na UFPB, o percentil 90 é o critério usado para a láurea acadêmica. O corte estimado nesta base é "
-    +corte90.toFixed(2)+", calculado a partir dos dados atuais e recalculado a cada atualização. "
-    +"Estar acima desse valor atende ao critério de nota para a láurea.","geral"));
+    +formatarCRA(corte90)+". A primeira nota acima desse corte é "
+    +(primeiraNotaAcimaCorte==null?"não identificada":formatarCRA(primeiraNotaAcimaCorte))
+    +". Estar acima do corte atende ao critério de nota para a láurea.","geral"));
 
   if(grupoAluno){
     const pG=percentil(grupoAluno.notas,nota);
@@ -1373,14 +1444,14 @@ function consultar(){
 
   cartoes.appendChild(cartao(
     "Mediana do curso",
-    estatisticas(todasNotas).mediana.toFixed(2),
+    formatarCRA(estatisticas(todasNotas).mediana),
     "A mediana é o valor central da lista de CRA: metade dos estudantes tem CRA acima dela e metade abaixo. "
-    +"Média "+estatisticas(todasNotas).media.toFixed(2)+" · mínimo "
-    +todasNotas[0].toFixed(2)+" · máximo "+todasNotas[todasNotas.length-1].toFixed(2)
+    +"Média "+formatarCRA(estatisticas(todasNotas).media)+" · mínimo "
+    +formatarCRA(todasNotas[0])+" · máximo "+formatarCRA(todasNotas[todasNotas.length-1])
     +" · "+todasNotas.length+" registros.","geral"));
 
-  desenharHistograma($("gHistograma"),todasNotas,nota);
-  desenharAcumulada($("gAcumulada"),todasNotas,nota);
+  desenharHistograma($("gHistograma"),notasGrafico,nota);
+  desenharAcumulada($("gAcumulada"),todasNotas,notasGrafico,nota);
   desenharAnos($("gAnos"),grupos,grupoAluno,nota);
   desenharEvolucao($("gEvolucao"),grupos);
 
