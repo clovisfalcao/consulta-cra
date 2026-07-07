@@ -1211,7 +1211,6 @@ function desenharAnos(container,grupos,grupoAluno,nota){
     if(destaque&&nota!=null)
       svg.appendChild(el("circle",{cx:cx,cy:y(nota),r:5,fill:"#7A1F1F",stroke:"#fff","stroke-width":"1.5"}));
   });
-  svg.appendChild(el("text",{x:mE,y:mT-12,"text-anchor":"start",class:"tick-txt"},"CRA"));
   container.appendChild(svg);
 }
 
