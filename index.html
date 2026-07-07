@@ -203,13 +203,13 @@ footer{
     <div class="campos">
       <div class="campo campo-cra">
         <label for="inputCra">Seu CRA</label>
-        <input type="text" id="inputCra" inputmode="decimal" placeholder="Ex.: 7,43 ou 743" autocomplete="off">
-        <div class="ajuda">Escala de 0 a 10. Pode digitar com vírgula ou ponto (7,43) ou só os dígitos, sem separador (743), que o sistema interpreta como 7,43.</div>
+        <input type="text" id="inputCra" inputmode="decimal" placeholder="Ex.: 7,43, 743 ou 79" autocomplete="off">
+        <div class="ajuda">Escala de 0 a 10. Pode digitar com vírgula ou ponto (7,43) ou só os dígitos, sem separador: 743 vira 7,43 e 79 vira 7,90.</div>
       </div>
       <div class="campo campo-matricula">
-        <label for="inputMatricula">Sua matrícula <span class="opcional">(opcional)</span></label>
-        <input type="text" id="inputMatricula" inputmode="numeric" placeholder="Número de matrícula" autocomplete="off">
-        <div class="ajuda">Usada apenas para identificar sua turma de ingresso pelos 4 primeiros dígitos, no padrão adotado a partir de 2017. Não é enviada nem guardada. Matrículas antigas ou de numeração especial devem informar o ano manualmente ao lado.</div>
+        <label for="inputMatricula">Quatro primeiros dígitos da matrícula <span class="opcional">(opcional)</span></label>
+        <input type="text" id="inputMatricula" inputmode="numeric" placeholder="Ex.: 2023" autocomplete="off">
+        <div class="ajuda">Também pode informar a matrícula completa; apenas os quatro primeiros dígitos serão considerados. Matrículas iniciadas por 1 são tratadas como anteriores a 2019. Não é enviada nem guardada.</div>
       </div>
       <div class="campo" id="campoAnoManual" style="display:none">
         <label for="selectAno">Ano de ingresso</label>
@@ -1327,11 +1327,11 @@ const selectAno=$("selectAno");
 function grupoDaMatricula(mat){
   const dig=mat.replace(/\D/g,"");
   if(dig.length<4)
-    return {erro:"Não foi possível estimar o ano a partir dessa matrícula. Este cálculo só reconhece matrículas cujos quatro primeiros dígitos correspondam ao ano de ingresso (padrão adotado a partir de "+ANO_MINIMO+"). Escolha o ano manualmente no campo ao lado."};
+    return {erro:"Informe os quatro primeiros dígitos da matrícula ou escolha o ano manualmente no campo ao lado."};
   const ano=parseInt(dig.slice(0,4),10);
   const anoAtual=new Date().getFullYear();
   if(!(ano>=ANO_MINIMO&&ano<=anoAtual)){
-    return {erro:"Não foi possível estimar o ano a partir dessa matrícula. Este cálculo só reconhece matrículas cujos quatro primeiros dígitos correspondam ao ano de ingresso (padrão adotado a partir de "+ANO_MINIMO+"). Matrículas anteriores a esse padrão, inclusive as de numeração especial, devem ter o ano escolhido manualmente no campo ao lado."};
+    return {erro:"Matrículas iniciadas por 1 são anteriores a 2019 nesta base. Escolha o ano manualmente no campo ao lado."};
   }
   if(diagnosticoUltimoAno&&diagnosticoUltimoAno.semComparacao&&ano===diagnosticoUltimoAno.ano)
     return {semComparacao:true,ano};
@@ -1349,12 +1349,13 @@ function interpretarNota(texto){
     if(isNaN(v)||v<0||v>10) return {erro:"Digite um CRA válido, entre 0 e 10."};
     return {valor:v};
   }
-  // Só dígitos: os dois últimos são os decimais, o resto é a parte inteira.
+  // Só dígitos: com 2 dígitos, completa a segunda casa decimal com zero
+  // (79 vira 7,90); com 3 ou 4, os dois últimos são decimais.
   const digitos=t.replace(/\D/g,"");
-  if(digitos!==t||digitos.length<3||digitos.length>4)
-    return {erro:"Não foi possível interpretar esse valor. Digite com vírgula ou ponto (ex.: 7,43) ou só os dígitos, sem separador, no formato inteiro seguido de dois decimais (ex.: 743 para 7,43)."};
-  const parteInteira=digitos.slice(0,digitos.length-2);
-  const parteDecimal=digitos.slice(-2);
+  if(digitos!==t||digitos.length<2||digitos.length>4)
+    return {erro:"Não foi possível interpretar esse valor. Digite com vírgula ou ponto (ex.: 7,43) ou só os dígitos, sem separador (ex.: 743 para 7,43 ou 79 para 7,90)."};
+  const parteInteira=digitos.length===2?digitos.slice(0,1):digitos.slice(0,digitos.length-2);
+  const parteDecimal=digitos.length===2?digitos.slice(1)+"0":digitos.slice(-2);
   const v=parseFloat(parteInteira+"."+parteDecimal);
   if(isNaN(v)||v<0||v>10) return {erro:"Digite um CRA válido, entre 0 e 10."};
   return {valor:v};
