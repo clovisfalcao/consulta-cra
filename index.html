@@ -127,6 +127,8 @@ button:hover{background:var(--azul-claro)}
 .cartao .rotulo{
   font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;
   color:var(--tinta-suave);margin-bottom:.45rem;
+  min-height:3.35rem;
+  line-height:1.35;
 }
 .cartao .valor{
   font-weight:700;font-size:2rem;color:var(--azul-ufpb);line-height:1.15;
@@ -178,6 +180,7 @@ footer{
 }
 @media (max-width:600px){
   header h1{font-size:1.45rem}
+  .cartao .rotulo{min-height:auto}
   .cartao .valor{font-size:1.6rem}
 }
 </style>
