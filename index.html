@@ -1157,6 +1157,17 @@ function textoRegistrosZero(total){
   return " ("+total+" "+(total===1?"registro":"registros")+" com CRA 0,00).";
 }
 
+function textoPosicao(pos, universo){
+  const termoRegistro=pos.total===1?"registro":"registros";
+  if(pos.de===pos.ate){
+    return "Posição estimada na "+pos.de+"ª colocação entre "
+      +pos.total+" "+termoRegistro+" "+universo+".";
+  }
+  return "Posição estimada entre a "+pos.de+"ª e a "+pos.ate+"ª colocação de "
+    +pos.total+" "+termoRegistro+" "+universo+".";
+}
+
+
 /* ============================ GRÁFICOS ============================ */
 /* SVG desenhado sem biblioteca, para funcionar sem rede. */
 
@@ -1423,8 +1434,7 @@ function consultar(){
 
   cartoes.appendChild(cartao(
     "No curso (todos os grupos)","Aprox. "+pGeral.toFixed(0)+"º percentil",
-    "Posição estimada entre a "+posGeral.de+"ª e a "+posGeral.ate+"ª colocação de "
-    +posGeral.total+" registros da base.","geral"));
+    textoPosicao(posGeral,"da base"),"geral"));
 
   cartoes.appendChild(cartao(
     "Acima do percentil 90 (critério de láurea)",
@@ -1439,8 +1449,7 @@ function consultar(){
     const posG=posicaoAproximada(grupoAluno.notas,nota);
     cartoes.appendChild(cartao(
       "No seu grupo de ingresso ("+grupoAluno.rotulo+")","Aprox. "+pG.toFixed(0)+"º percentil",
-      "Posição estimada entre a "+posG.de+"ª e a "+posG.ate+"ª colocação de "
-      +posG.total+" registros do grupo.","ano"));
+      textoPosicao(posG,"do grupo"),"ano"));
   }
 
   cartoes.appendChild(cartao(
