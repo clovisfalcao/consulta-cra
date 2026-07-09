@@ -41,7 +41,7 @@ Os dados são mantidos diretamente em `index.html`, no bloco `DADOS_CSV`. Ao atu
 
 ## Desenvolvimento
 
-A ferramenta foi desenvolvida com apoio do **Codex** e do **Claude**.
+A ferramenta foi desenvolvida com uso dos aplicativos **Codex** e **Claude**.
 
 ## Licença
 
