@@ -5,14 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Consulta de posição do CRA — Direito Santa Rita — CCJ/UFPB</title>
 <style>
-/* =====================================================================
-   IDENTIDADE VISUAL — ajuste aqui se o manual do CCJ indicar outros tons
-   ===================================================================== */
 :root{
-  --azul-ufpb:#0B3358;        /* azul institucional escuro */
+  --azul-ufpb:#0B3358;
   --azul-claro:#1D5B8C;
-  --vinho-ccj:#7A1F1F;        /* vinho tradicional do Direito */
-  --vinho-claro:#A33B3B;
+  --vinho-ccj:#7A1F1F;
   --fundo:#FAFAF7;
   --papel:#FFFFFF;
   --tinta:#1C1C1A;
@@ -28,9 +24,6 @@ body{
   font-family:"Segoe UI",-apple-system,"Helvetica Neue",Arial,sans-serif;
   line-height:1.55;
 }
-.negrito{font-weight:700}
-
-/* Cabeçalho institucional */
 header{
   background:var(--azul-ufpb);
   color:#fff;
@@ -49,7 +42,6 @@ header .subtitulo{margin-top:.5rem;color:#C9D6E2;font-size:.95rem;max-width:640p
 
 main{max-width:960px;margin:0 auto;padding:2rem 1.5rem 4rem}
 
-/* Aviso de estimativa */
 .aviso{
   background:var(--destaque-fundo);
   border-left:4px solid var(--vinho-ccj);
@@ -72,7 +64,6 @@ main{max-width:960px;margin:0 auto;padding:2rem 1.5rem 4rem}
 .aviso-limite p:last-child{margin-bottom:0}
 .aviso-limite strong{color:#B42318}
 
-/* Formulário */
 .consulta{
   background:var(--papel);
   border:1px solid var(--linha);
@@ -115,7 +106,6 @@ button:hover{background:var(--azul-claro)}
 .erro.visivel{display:block}
 .ajuda{font-size:.8rem;color:var(--tinta-suave);margin-top:.3rem}
 
-/* Resultados */
 #resultado{display:none}
 #resultado.visivel{display:block}
 .cartoes{display:flex;flex-wrap:wrap;gap:1.25rem;margin-bottom:2.5rem}
@@ -141,7 +131,6 @@ button:hover{background:var(--azul-claro)}
   padding:.1rem .45rem;margin-left:.5rem;vertical-align:middle;
 }
 
-/* Gráficos */
 .grafico{
   background:var(--papel);border:1px solid var(--linha);
   padding:1.4rem 1.4rem 1rem;margin-bottom:2rem;
@@ -157,7 +146,6 @@ button:hover{background:var(--azul-claro)}
 .marcador-linha{stroke:var(--vinho-ccj);stroke-width:2;stroke-dasharray:5 4}
 .marcador-txt{font-size:12px;fill:var(--vinho-ccj);font-weight:600}
 
-/* Rodapé */
 footer{
   border-top:1px solid var(--linha);color:var(--tinta-suave);
   font-size:.8rem;padding:1.5rem;text-align:center;
@@ -268,25 +256,7 @@ footer{
 <script>
 "use strict";
 
-/* =====================================================================
-   BLOCO DE DADOS — ESTE É O ÚNICO TRECHO A SUBSTITUIR
-   =====================================================================
-   O arquivo NÃO contém matrículas nem nomes. Cada linha traz apenas o
-   ANO DE INGRESSO e o CRA, no formato:
-   ano,cra
-   2023,7.85
-   2022,6.4
-   ,8.62      (linha sem ano: aluno de matrícula antiga/especial)
-   ...
-   A extração do ano a partir da matrícula é feita FORA deste arquivo,
-   ao preparar os dados, de modo que a matrícula completa jamais é
-   embutida aqui. Regras aplicadas na leitura:
-   - o ano precisa ter 4 dígitos entre ANO_MINIMO e o ano atual;
-   - linhas sem ano válido entram no grupo "Ingresso anterior";
-   - grupos de ano com menos de TAMANHO_MINIMO_GRUPO estudantes são
-     fundidos com o grupo vizinho mais próximo.
-   Os dados abaixo são reais, agregados e anonimizados.
-   ===================================================================== */
+/* Atualizar semestralmente apenas este bloco: ano,cra. Não incluir nomes nem matrículas completas. */
 const DADOS_CSV = `ano,cra
 2022,9.76
 2023,9.7
@@ -982,36 +952,12 @@ const DADOS_CSV = `ano,cra
 2026,0.0
 `;
 
-const ANO_MINIMO = 2017;              // anos abaixo disso viram "Ingresso anterior"
-// Turmas do curso costumam ter até 200 alunos por ano, o que deixa folga
-// confortável acima deste piso. Ajuste apenas se algum ano vier com
-// número de registros muito menor que o esperado.
-const TAMANHO_MINIMO_GRUPO = 15;      // grupos menores são fundidos ao vizinho
+const ANO_MINIMO = 2017;
+const TAMANHO_MINIMO_GRUPO = 15;
 const LIMIAR_ZERO_ULTIMO_ANO_SEM_COMPARACAO = 0.90;
 const LIMIAR_CRA_ULTIMO_ANO_COMPARAVEL = 0.25;
 
-/* ============================ LEITURA ============================ */
-
-function gerarExemplo(){
-  // Gera notas de demonstração apenas se o bloco de dados for substituído
-  // pelo marcador DADOS_DE_DEMONSTRACAO em uma cópia de teste.
-  const linhas=[];let semente=42;
-  const rnd=()=>{semente=(semente*16807)%2147483647;return semente/2147483647};
-  const anos=[2019,2020,2021,2022,2023,2024,2025];
-  anos.forEach((ano,i)=>{
-    const n=40+Math.floor(rnd()*30);
-    for(let k=0;k<n;k++){
-      let v=5.2+i*0.12+ (rnd()+rnd()+rnd())*1.6;
-      v=Math.max(1.5,Math.min(9.9,v));
-      linhas.push(ano+","+v.toFixed(2));
-    }
-  });
-  for(let k=0;k<8;k++){linhas.push(","+(4+rnd()*5).toFixed(2));}
-  return "ano,cra\n"+linhas.join("\n");
-}
-
 function lerCSV(texto){
-  if(texto.includes("DADOS_DE_DEMONSTRACAO")) texto=gerarExemplo();
   const anoAtual=new Date().getFullYear();
   const registros=[];
   texto.split(/\r?\n/).forEach(linha=>{
@@ -1032,8 +978,6 @@ function lerCSV(texto){
   return registros;
 }
 
-/* ==================== AGRUPAMENTO E ESTATÍSTICA ==================== */
-
 function construirGrupos(registros){
   const mapa=new Map();
   registros.forEach(r=>{
@@ -1041,7 +985,6 @@ function construirGrupos(registros){
     if(!mapa.has(chave)) mapa.set(chave,[]);
     mapa.get(chave).push(r.cra);
   });
-  // Ordena grupos: "anterior" primeiro, depois anos crescentes
   let grupos=[...mapa.entries()].map(([chave,notas])=>({
     chave, anos: chave==="anterior"?[]:[parseInt(chave,10)], notas
   })).sort((a,b)=>{
@@ -1049,7 +992,6 @@ function construirGrupos(registros){
     if(b.chave==="anterior") return 1;
     return a.anos[0]-b.anos[0];
   });
-  // Fusão de grupos pequenos com o vizinho (o "anterior" funde com o mais antigo)
   let mudou=true;
   while(mudou&&grupos.length>1){
     mudou=false;
@@ -1078,22 +1020,10 @@ function diagnosticarUltimoAno(registros){
   const doAno=registros.filter(r=>r.ano===ano);
   const total=doAno.length;
   const zeros=doAno.filter(r=>Math.abs(r.cra)<1e-9).length;
-  const positivos=total-zeros;
   const proporcaoZero=zeros/total;
-  const proporcaoPositiva=positivos/total;
-  /*
-     Regra da turma mais recente:
-     - todos os registros, inclusive CRA 0,00, entram no cálculo geral do curso
-       e do percentil 90;
-     - quando o último ano tem mais de 90% de CRA 0,00, a turma ainda está
-       sem histórico suficiente de CRA e fica fora das comparações por turma;
-     - quando ao menos 25% da turma mais recente já tem CRA diferente de zero,
-       a turma entra nas comparações, mas pode receber aviso curto porque ainda
-       há estudantes com CRA 0,00 por falta de notas consolidadas.
-     Zeros em anos anteriores permanecem como CRA real.
-  */
+  const proporcaoPositiva=(total-zeros)/total;
   return {
-    ano,total,zeros,positivos,proporcaoZero,proporcaoPositiva,
+    ano,
     semComparacao: proporcaoZero>LIMIAR_ZERO_ULTIMO_ANO_SEM_COMPARACAO ||
       proporcaoPositiva<LIMIAR_CRA_ULTIMO_ANO_COMPARAVEL,
     comparacaoParcial: proporcaoZero>0 &&
@@ -1114,18 +1044,16 @@ function rotuloGrupo(g){
   return r;
 }
 
-function estatisticas(v){ // v ordenado
+function estatisticas(v){
   const n=v.length;
   const soma=v.reduce((s,x)=>s+x,0);
   const media=soma/n;
   const q=p=>{const pos=(n-1)*p,base=Math.floor(pos),resto=pos-base;
     return v[base]+(v[Math.min(base+1,n-1)]-v[base])*resto;};
-  const dp=Math.sqrt(v.reduce((s,x)=>s+(x-media)*(x-media),0)/n);
-  return {n,min:v[0],max:v[n-1],media,mediana:q(.5),q1:q(.25),q3:q(.75),dp};
+  return {n,min:v[0],max:v[n-1],media,mediana:q(.5),q1:q(.25),q3:q(.75)};
 }
 
 function percentil(vOrdenado,nota){
-  // proporção estritamente menor + metade dos empatados (percentil médio)
   let menores=0,iguais=0;
   for(const x of vOrdenado){if(x<nota)menores++;else if(Math.abs(x-nota)<1e-9)iguais++;}
   return (menores+iguais/2)/vOrdenado.length*100;
@@ -1139,7 +1067,6 @@ function posicaoAproximada(vOrdenado,nota){
 }
 
 function valorDeCorte(vOrdenado,p){
-  // Valor de corte de um percentil (0 a 100), por interpolação linear.
   const n=vOrdenado.length;
   const pos=(n-1)*(p/100);
   const base=Math.floor(pos),resto=pos-base;
@@ -1171,9 +1098,6 @@ function textoPosicao(pos, universo){
 }
 
 
-/* ============================ GRÁFICOS ============================ */
-/* SVG desenhado sem biblioteca, para funcionar sem rede. */
-
 const NS="http://www.w3.org/2000/svg";
 function el(tag,attrs,texto){
   const e=document.createElementNS(NS,tag);
@@ -1195,20 +1119,17 @@ function desenharHistograma(container,notasVisual,nota){
   const maxBin=Math.max(...bins,1);
   const x=v=>mE+(v-min)/(max-min)*(L-mE-mD);
   const y=c=>A-mB-(c/maxBin)*(A-mT-mB);
-  // eixos e ticks
   svg.appendChild(el("line",{x1:mE,y1:A-mB,x2:L-mD,y2:A-mB,class:"eixo"}));
   for(let v=0;v<=10;v+=2){
     svg.appendChild(el("line",{x1:x(v),y1:A-mB,x2:x(v),y2:A-mB+4,class:"eixo"}));
     svg.appendChild(el("text",{x:x(v),y:A-mB+18,"text-anchor":"middle",class:"tick-txt"},String(v)));
   }
   svg.appendChild(el("text",{x:(mE+L-mD)/2,y:A-2,"text-anchor":"middle",class:"tick-txt"},"CRA"));
-  // barras
   bins.forEach((c,i)=>{
     const x0=x(min+i*passo)+1,larg=x(min+(i+1)*passo)-x(min+i*passo)-2;
     svg.appendChild(el("rect",{x:x0,y:y(c),width:Math.max(larg,1),height:(A-mB)-y(c),
       fill:"#0B3358",opacity:"0.82"}));
   });
-  // marcador
   if(nota!=null){
     svg.appendChild(el("line",{x1:x(nota),y1:mT,x2:x(nota),y2:A-mB,class:"marcador-linha"}));
     const anc=nota>8?"end":"start",dx=nota>8?-6:6;
@@ -1233,7 +1154,6 @@ function desenharAcumulada(container,vOrdenado,notasVisual,nota){
     svg.appendChild(el("text",{x:mE-8,y:y(p)+4,"text-anchor":"end",class:"tick-txt"},p+"%"));
   }
   svg.appendChild(el("text",{x:(mE+L-mD)/2,y:A-2,"text-anchor":"middle",class:"tick-txt"},"CRA"));
-  // curva
   const inicioCurva=notasVisual.length>0?notasVisual[0]:0;
   let d="";
   for(let i=0;i<=200;i++){
@@ -1302,7 +1222,6 @@ function desenharEvolucao(container,grupos){
   svg.appendChild(el("path",{d,fill:"none",stroke:"#0B3358","stroke-width":"2.4"}));
   grupos.forEach((g,i)=>{
     const cx=n===1?(mE+L-mD)/2:mE+faixa*i;
-    // Ancora o rótulo para dentro nas extremidades, evitando corte.
     let anc="middle";
     if(n>1&&i===0) anc="start";
     else if(n>1&&i===n-1) anc="end";
@@ -1313,8 +1232,6 @@ function desenharEvolucao(container,grupos){
   });
   container.appendChild(svg);
 }
-
-/* ============================ INTERFACE ============================ */
 
 const registros=lerCSV(DADOS_CSV);
 const diagnosticoUltimoAno=diagnosticarUltimoAno(registros);
@@ -1357,14 +1274,11 @@ function grupoDaMatricula(mat){
 function interpretarNota(texto){
   const t=texto.trim();
   if(t==="") return {erro:"Digite o seu CRA."};
-  // Caso já venha com vírgula ou ponto: usa direto.
   if(/[.,]/.test(t)){
     const v=parseFloat(t.replace(",","."));
     if(isNaN(v)||v<0||v>10) return {erro:"Digite um CRA válido, entre 0 e 10."};
     return {valor:v};
   }
-  // Só dígitos: com 2 dígitos, completa a segunda casa decimal com zero
-  // (79 vira 7,90); com 3 ou 4, os dois últimos são decimais.
   const digitos=t.replace(/\D/g,"");
   if(digitos!==t||digitos.length<2||digitos.length>4)
     return {erro:"Não foi possível interpretar esse valor. Digite com vírgula ou ponto (ex.: 7,43) ou só os dígitos, sem separador (ex.: 743 para 7,43 ou 79 para 7,90)."};
@@ -1377,7 +1291,6 @@ function interpretarNota(texto){
 
 function consultar(){
   const msg=$("msgErro");msg.classList.remove("visivel");msg.textContent="";
-  $("campoAnoManual").style.display=$("campoAnoManual").style.display; // mantém estado
   const brutoNota=$("inputCra").value;
   const interpretada=interpretarNota(brutoNota);
   if(interpretada.erro){
@@ -1404,8 +1317,7 @@ function consultar(){
       anoAlunoSemComparacao=r.ano;
     }else grupoAluno=r.grupo;
   }
-  // A matrícula digitada não é usada para mais nada nem armazenada.
-  $("inputMatricula").value=mat; // permanece apenas no campo, sob controle do usuário
+  $("inputMatricula").value=mat;
 
   if(anoAlunoSemComparacao){
     avisosLimite.push("Sua turma ainda não tem histórico suficiente de CRA para comparação. Abaixo aparece sua posição estimada no curso.");
@@ -1487,9 +1399,6 @@ function cartao(rotulo,valor,detalhe,tipo){
 $("btnConsultar").addEventListener("click",consultar);
 ["inputCra","inputMatricula"].forEach(id=>
   $(id).addEventListener("keydown",e=>{if(e.key==="Enter")consultar();}));
-$("inputMatricula").addEventListener("input",()=>{
-  // Se o usuário digitar matrícula fora do padrão, o campo manual aparece na consulta.
-});
 </script>
 </body>
 </html>
