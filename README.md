@@ -31,13 +31,13 @@ Os dados de referência são agregados e anônimos: não incluem nomes nem matr�
 
 ## Limites e atualização dos dados
 
-Os resultados são estimativas calculadas a partir de dados agregados, atualizados até **07/07/2026**. Eles não substituem os registros oficiais da UFPB ou as informações disponíveis no SIGAA.
+Os resultados são estimativas calculadas a partir de dados agregados, atualizados até **23/08/2026**. Eles não substituem os registros oficiais da UFPB ou as informações disponíveis no SIGAA.
 
 Em caso de divergência, entre em contato com a Coordenação do Bacharelado em Direito — Unidade Santa Rita: [direitosantarita@ccj.ufpb.br](mailto:direitosantarita@ccj.ufpb.br).
 
 ## Manutenção
 
-Os dados são mantidos diretamente em `index.html`, no bloco `DADOS_CSV`. Ao atualizá-los, preserve apenas as colunas `ano` e `cra`; não inclua nomes nem matrículas completas.
+Os dados são mantidos diretamente em `index.html`, no bloco `DADOS_CSV`. Ao atualizá-los, preservar apenas as colunas `ano` e `cra`; não incluir nomes nem matrículas completas.
 
 ## Desenvolvimento
 
