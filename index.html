@@ -50,6 +50,13 @@ main{max-width:960px;margin:0 auto;padding:2rem 1.5rem 4rem}
   margin-bottom:2rem;
 }
 .aviso strong{color:var(--vinho-ccj)}
+.aviso-resumo{
+  background:#F2F4F5;border-left-color:var(--azul-claro);
+  padding:.8rem 1rem;color:var(--tinta-suave);margin-bottom:1.5rem;
+}
+.aviso-resumo strong{display:block;color:var(--tinta);margin-bottom:.2rem}
+.aviso-resumo ul{padding-left:1.1rem}
+.aviso-resumo li+li{margin-top:.1rem}
 .aviso-limite{
   display:none;
   background:#FBEAEA;
@@ -75,7 +82,8 @@ main{max-width:960px;margin:0 auto;padding:2rem 1.5rem 4rem}
   color:var(--azul-ufpb);margin-bottom:1.1rem;
 }
 .campos{
-  --altura-rotulo:2.8rem;
+  --altura-rotulo:1.125rem;
+  --espaco-rotulo:.2rem;
   display:grid;
   grid-template-columns:minmax(240px,1fr) minmax(300px,1.15fr) max-content;
   grid-template-areas:
@@ -88,12 +96,12 @@ main{max-width:960px;margin:0 auto;padding:2rem 1.5rem 4rem}
 .campo-cra{grid-area:cra}
 .campo-matricula{grid-area:matricula}
 #campoAnoManual{grid-area:ano;max-width:320px}
-.campo-acao{grid-area:acao;align-self:start;padding-top:calc(var(--altura-rotulo) + .35rem)}
+.campo-acao{grid-area:acao;align-self:start;padding-top:calc(var(--altura-rotulo) + var(--espaco-rotulo))}
 label{
   display:block;min-height:var(--altura-rotulo);
-  font-size:.85rem;font-weight:600;color:var(--tinta);margin-bottom:.35rem;
+  font-size:.9rem;line-height:1.25;font-weight:600;color:var(--tinta);
+  margin-bottom:var(--espaco-rotulo);
 }
-label .opcional{font-weight:normal;color:var(--tinta-suave)}
 input[type=text],select{
   width:100%;padding:.6rem .7rem;font-size:1.05rem;
   border:1px solid var(--linha);background:#fff;color:var(--tinta);
@@ -158,9 +166,10 @@ footer{
   #resultado.visivel{animation:surgir .35s ease-out}
   @keyframes surgir{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 }
-@media (max-width:820px){
+@media (max-width:900px){
   .campos{
     --altura-rotulo:auto;
+    --espaco-rotulo:.2rem;
     grid-template-columns:1fr;
     grid-template-areas:
       "cra"
@@ -191,8 +200,13 @@ footer{
 
 <main>
 
-  <div class="aviso" role="note">
-    <strong>Leia antes de consultar.</strong> Dados atualizados até 23/08/2026. Os resultados são <strong>estimativas</strong>, calculadas a partir de uma base agregada e anônima, sem nomes nem matrículas completas. <span id="notaRecorte2026"></span> A consulta é totalmente anônima: nada é enviado, salvo ou armazenado. Os resultados não substituem registros oficiais da UFPB nem eventual conferência pela Coordenação ou pela secretaria do curso.
+  <div class="aviso aviso-resumo" role="note">
+    <strong>Leia antes de consultar</strong>
+    <ul>
+      <li>Dados atualizados até 23/08/2026.</li>
+      <li>Os resultados são estimativas calculadas com dados anônimos.</li>
+      <li><span id="notaRecorte2026"></span></li>
+    </ul>
   </div>
 
   <section class="consulta" aria-labelledby="tituloConsulta">
@@ -204,9 +218,9 @@ footer{
         <div class="ajuda">Escala de 0 a 10. Pode digitar com vírgula ou ponto (7,43) ou só os dígitos, sem separador: 743 vira 7,43 e 79 vira 7,90.</div>
       </div>
       <div class="campo campo-matricula">
-        <label for="inputMatricula">Quatro primeiros dígitos da matrícula <span class="opcional">(opcional)</span></label>
+        <label for="inputMatricula">Quatro primeiros dígitos da matrícula</label>
         <input type="text" id="inputMatricula" inputmode="numeric" placeholder="Ex.: 2023" autocomplete="off">
-        <div class="ajuda">Também pode informar a matrícula completa; apenas os quatro primeiros dígitos serão considerados. Matrículas iniciadas por 1 são tratadas como anteriores a 2019. Não é enviada nem guardada.</div>
+        <div class="ajuda">Campo opcional. Também pode informar a matrícula completa; apenas os quatro primeiros dígitos serão considerados. Matrículas iniciadas por 1 são tratadas como anteriores a 2019. Não é enviada nem guardada.</div>
       </div>
       <div class="campo" id="campoAnoManual" style="display:none">
         <label for="selectAno">Ano de ingresso</label>
@@ -1280,11 +1294,10 @@ const totalZeros=todasNotas.length-notasGrafico.length;
 const $=id=>document.getElementById(id);
 const selectAno=$("selectAno");
 $("notaRecorte2026").textContent=
-  "A base considera apenas "+totalIncluidos2026+" estudantes com matrícula iniciada em "+
-  ANO_COM_INGRESSANTES_SEM_CRA+" e CRA maior que 0,00. Os "+
-  registrosExcluidos2026.length+" registros com CRA 0,00 desse ano ficaram fora das "+
-  "estimativas gerais, pois incluem os ingressantes de 2026.2. O percentil 90 mantém a "+
-  "lista completa, conforme o cálculo do sistema da universidade.";
+  "Na comparação entre turmas e no CRA médio por grupo de ingresso, entram "+
+  totalIncluidos2026+" estudantes de "+ANO_COM_INGRESSANTES_SEM_CRA+
+  " com CRA maior que 0,00. Os registros com CRA 0,00 desse ano, que incluem os "+
+  "ingressantes de 2026.2, ficam fora.";
 ["notaZerosHist","notaZerosAcum"].forEach(id=>$(id).textContent=textoRegistrosZero(totalZeros));
 (function popularSelect(){
   const op0=document.createElement("option");
@@ -1399,7 +1412,7 @@ function consultar(){
     "Na UFPB, o percentil 90 é o critério usado para a láurea acadêmica. O corte estimado nesta base é "
     +formatarCRA(corte90)+". A primeira nota acima desse corte é "
     +(primeiraNotaAcimaCorte==null?"não identificada":formatarCRA(primeiraNotaAcimaCorte))
-    +". Estar acima do corte atende ao critério de nota para a láurea.","geral"));
+    +". Este cálculo mantém a lista completa, como no sistema da universidade. Estar acima do corte atende ao critério de nota para a láurea.","geral"));
 
   if(grupoAluno){
     const pG=percentil(grupoAluno.notas,nota);
