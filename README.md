@@ -29,7 +29,7 @@ Os dados de referência são agregados e anônimos: não incluem nomes nem matr�
 3. Se a matrícula não for reconhecida, escolha o ano da matrícula no campo que aparece. Escolher o ano dispensa a matrícula, e informar a matrícula dispensa o ano.
 4. Consulte o resultado estimado.
 
-Matrículas iniciadas por 1 correspondem a ingresso anterior a 2017. Esse grupo, assim como a turma mais recente (2026), não entra na comparação entre turmas, mas continua na posição geral no curso. Os registros da turma mais recente com CRA 0,00, de estudantes ainda sem notas lançadas, ficam fora das estimativas gerais. O percentil 90 da láurea usa a lista completa, como o sistema da UFPB.
+Matrículas iniciadas por 1 correspondem a ingresso anterior a 2017. Esse grupo, assim como a turma mais recente (2026), não entra na comparação entre turmas, mas continua na posição geral no curso. A posição geral, a mediana, a média e o percentil 90 da láurea usam a lista completa do curso, inclusive os registros com CRA 0,00 de estudantes ainda sem notas lançadas.
 
 ## Limites e atualização dos dados
 

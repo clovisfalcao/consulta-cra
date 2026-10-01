@@ -1005,8 +1005,8 @@ const ANO_BASE = 2026;
 const DATA_ATUALIZACAO = "23/08/2026";
 const ANO_MINIMO = 2017;
 // Turma da matrícula mais recente: parte só cursou um período e parte ainda não tem notas.
-// Fica fora da comparação entre turmas, e seus registros com CRA 0,00 ficam fora das
-// estimativas gerais. Normalmente é igual a ANO_BASE.
+// Fica fora da comparação entre turmas, mas continua na posição geral no curso.
+// Normalmente é igual a ANO_BASE.
 const ANO_TURMA_SEM_COMPARACAO = ANO_BASE;
 const TAMANHO_MINIMO_GRUPO = 15;
 
@@ -1254,17 +1254,14 @@ function desenharEvolucao(container,grupos){
   container.appendChild(svg);
 }
 
-const registrosOriginais=lerCSV(DADOS_CSV);
+// As estimativas gerais usam a lista completa do curso, inclusive os CRA 0,00
+// (estudantes ainda sem notas lançadas), para que o total coincida com o número
+// de estudantes. O percentil 90 da láurea também usa a lista completa, como o sistema da UFPB.
+const registros=lerCSV(DADOS_CSV);
 const ehZero=r=>Math.abs(r.cra)<1e-9;
-// Os registros com CRA 0,00 da turma mais recente são de estudantes ainda sem notas
-// lançadas. Ficam fora das estimativas gerais; zeros de outras turmas permanecem.
-const totalExcluidosRecente=registrosOriginais.filter(r=>
+const totalZerosRecente=registros.filter(r=>
   r.ano===ANO_TURMA_SEM_COMPARACAO&&ehZero(r)
 ).length;
-const registros=registrosOriginais.filter(r=>
-  !(r.ano===ANO_TURMA_SEM_COMPARACAO&&ehZero(r))
-);
-const totalIncluidosRecente=registros.filter(r=>r.ano===ANO_TURMA_SEM_COMPARACAO).length;
 const totalAnteriores=registros.filter(r=>r.ano===null).length;
 // A comparação entre turmas deixa de fora a turma mais recente e os ingressos
 // anteriores a 2017 (ano em branco). Ambos continuam na posição geral no curso.
@@ -1273,9 +1270,6 @@ const registrosComparacao=registros.filter(r=>
 );
 const grupos=construirGrupos(registrosComparacao);
 const todasNotas=registros.map(r=>r.cra).sort((a,b)=>a-b);
-// O sistema da universidade calcula o percentil 90 com a lista completa,
-// inclusive os CRA 0,00 da turma mais recente. Esse critério não usa o recorte das estimativas gerais.
-const notasPercentil90=registrosOriginais.map(r=>r.cra).sort((a,b)=>a-b);
 const notasGrafico=todasNotas.filter(v=>v>0);
 const totalZeros=todasNotas.length-notasGrafico.length;
 
@@ -1284,17 +1278,15 @@ const selectAno=$("selectAno");
 const inputMatricula=$("inputMatricula");
 $("dataAtualizacao").textContent=DATA_ATUALIZACAO;
 $("notaRecorteZeros").textContent=
-  "Os "+totalExcluidosRecente+" registros de "+ANO_TURMA_SEM_COMPARACAO+
-  " com CRA 0,00, de estudantes que ainda não têm notas lançadas, ficam fora da posição, "+
-  "do percentil, da mediana e da média do curso. O percentil 90 da láurea usa a lista "+
-  "completa, como o sistema da UFPB.";
+  "A posição, o percentil, a mediana, a média e o percentil 90 da láurea usam a lista "+
+  "completa do curso, com "+todasNotas.length+" registros. Entram nela "+totalZeros+
+  " registros com CRA 0,00, dos quais "+totalZerosRecente+" são de "+ANO_TURMA_SEM_COMPARACAO+
+  ", de estudantes que ainda não têm notas lançadas.";
 $("notaRecorteTurmas").textContent=
   "A comparação entre turmas não inclui a turma de "+ANO_TURMA_SEM_COMPARACAO+
   ", que ainda não tem histórico suficiente de CRA, nem os "+totalAnteriores+
   " registros de ingresso anterior a "+ANO_MINIMO+", cujo ano exato não é conhecido. "+
-  "Os "+totalIncluidosRecente+" registros de "+ANO_TURMA_SEM_COMPARACAO+
-  " com CRA maior que 0,00 e os de ingresso anterior a "+ANO_MINIMO+
-  " continuam na posição geral no curso.";
+  "Esses registros continuam na posição geral no curso.";
 ["notaExclusaoAnos","notaExclusaoEvolucao"].forEach(id=>$(id).textContent=
   " Não entram a turma de "+ANO_TURMA_SEM_COMPARACAO+" nem os ingressos anteriores a "+ANO_MINIMO+".");
 ["notaZerosHist","notaZerosAcum"].forEach(id=>$(id).textContent=textoRegistrosZero(totalZeros));
@@ -1398,8 +1390,8 @@ function consultar(){
 
   const pGeral=percentil(todasNotas,nota);
   const posGeral=posicaoAproximada(todasNotas,nota);
-  const corte90=valorDeCorte(notasPercentil90,90);
-  const primeiraNotaAcimaCorte=primeiroValorAcima(notasPercentil90,corte90);
+  const corte90=valorDeCorte(todasNotas,90);
+  const primeiraNotaAcimaCorte=primeiroValorAcima(todasNotas,corte90);
   const acimaDoCorte=nota>corte90;
   const cartoes=$("cartoes");cartoes.innerHTML="";
 
