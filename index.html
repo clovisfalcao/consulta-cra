@@ -95,7 +95,8 @@ main{max-width:960px;margin:0 auto;padding:2rem 1.5rem 4rem}
 .campo{min-width:0}
 .campo-cra{grid-area:cra}
 .campo-matricula{grid-area:matricula}
-#campoAnoManual{grid-area:ano;max-width:320px}
+#campoAnoManual{grid-area:ano;max-width:640px}
+#campoAnoManual select{max-width:320px}
 .campo-acao{grid-area:acao;align-self:start;padding-top:calc(var(--altura-rotulo) + var(--espaco-rotulo))}
 label{
   display:block;min-height:var(--altura-rotulo);
@@ -203,9 +204,10 @@ footer{
   <div class="aviso aviso-resumo" role="note">
     <strong>Leia antes de consultar</strong>
     <ul>
-      <li>Dados atualizados até 23/08/2026.</li>
+      <li>Dados atualizados até <span id="dataAtualizacao">23/08/2026</span>.</li>
       <li>Os resultados são estimativas calculadas com dados anônimos.</li>
-      <li><span id="notaRecorte2026"></span></li>
+      <li><span id="notaRecorteZeros"></span></li>
+      <li><span id="notaRecorteTurmas"></span></li>
     </ul>
   </div>
 
@@ -215,16 +217,17 @@ footer{
       <div class="campo campo-cra">
         <label for="inputCra">Seu CRA</label>
         <input type="text" id="inputCra" inputmode="decimal" placeholder="Ex.: 7,43, 743 ou 79" autocomplete="off">
-        <div class="ajuda">Escala de 0 a 10. Pode digitar com vírgula ou ponto (7,43) ou só os dígitos, sem separador: 743 vira 7,43 e 79 vira 7,90.</div>
+        <div class="ajuda">Escala de 0 a 10. Pode digitar com vírgula ou ponto (7,43) ou só os dígitos, sem separador: 743 vira 7,43, 79 vira 7,90 e 10 vira 10,00.</div>
       </div>
       <div class="campo campo-matricula">
         <label for="inputMatricula">Quatro primeiros dígitos da matrícula</label>
         <input type="text" id="inputMatricula" inputmode="numeric" placeholder="Ex.: 2023" autocomplete="off">
-        <div class="ajuda">Campo opcional. Também pode informar a matrícula completa; apenas os quatro primeiros dígitos serão considerados. Matrículas iniciadas por 1 são tratadas como anteriores a 2019. Não é enviada nem guardada.</div>
+        <div class="ajuda">Campo opcional. Também pode informar a matrícula completa; apenas os quatro primeiros dígitos serão considerados. A turma é definida pelo ano que aparece na matrícula. Matrículas iniciadas por 1 correspondem a ingresso anterior a 2017. Não é enviada nem guardada.</div>
       </div>
       <div class="campo" id="campoAnoManual" style="display:none">
-        <label for="selectAno">Ano de ingresso</label>
+        <label for="selectAno">Ano da matrícula</label>
         <select id="selectAno"></select>
+        <div class="ajuda">Escolha o ano que aparece nos quatro primeiros dígitos da matrícula. Com o calendário atrasado, ele pode ser diferente do ano em que as aulas começaram: parte da turma 2025.2, por exemplo, começou as aulas em 2026 com matrícula de 2025. Escolher o ano aqui dispensa a matrícula, e informar a matrícula dispensa o ano.</div>
       </div>
       <div class="campo campo-acao">
         <button id="btnConsultar">Ver posição estimada</button>
@@ -255,13 +258,13 @@ footer{
 
     <div class="grafico" id="blocoAnos">
       <h3>Comparação entre turmas de ingresso <span class="selo">estimado</span></h3>
-      <p class="legenda">Mediana e faixa central (do 1º ao 3º quartil) do CRA em cada grupo de ingresso. O grupo destacado, quando houver, é o da matrícula ou do ano informado.</p>
+      <p class="legenda">Mediana e faixa central (do 1º ao 3º quartil) do CRA em cada grupo de ingresso. O grupo destacado, quando houver, é o da matrícula ou do ano informado.<span id="notaExclusaoAnos"></span></p>
       <div id="gAnos"></div>
     </div>
 
     <div class="grafico" id="blocoEvolucao">
       <h3>CRA médio por grupo de ingresso <span class="selo">estimado</span></h3>
-      <p class="legenda">Média estimada do CRA de cada grupo. Grupos com poucos estudantes foram reunidos a grupos vizinhos para preservar o anonimato.</p>
+      <p class="legenda">Média estimada do CRA de cada grupo. Grupos com poucos estudantes foram reunidos a grupos vizinhos para preservar o anonimato.<span id="notaExclusaoEvolucao"></span></p>
       <div id="gEvolucao"></div>
     </div>
 
@@ -276,7 +279,14 @@ footer{
 <script>
 "use strict";
 
-/* Atualizar semestralmente apenas este bloco: ano,cra. Não incluir nomes nem matrículas completas. */
+/* ATUALIZAÇÃO DA BASE
+   A próxima atualização deve ocorrer entre fevereiro e março de 2027, com a lista de 2027.
+   Ao trocar a lista, revisar:
+   1. DADOS_CSV: apenas as colunas ano,cra. Não incluir nomes nem matrículas completas.
+      Ano em branco indica matrícula iniciada por 1 (ingresso anterior a 2017).
+   2. ANO_BASE: ano da lista (2027 na próxima atualização).
+   3. DATA_ATUALIZACAO: data dos dados, também citada no README.md.
+   4. ANO_TURMA_SEM_COMPARACAO: turma mais recente, que ainda não tem histórico de CRA. */
 const DADOS_CSV = `ano,cra
 2023,9.73
 2022,9.73
@@ -989,14 +999,18 @@ const DADOS_CSV = `ano,cra
 2026,0
 `;
 
+// Ano da lista. Fixo de propósito, para não depender do relógio do aparelho.
+// Trocar para 2027 quando a lista de 2027 for carregada (fevereiro a março de 2027).
+const ANO_BASE = 2026;
+const DATA_ATUALIZACAO = "23/08/2026";
 const ANO_MINIMO = 2017;
-const ANO_COM_INGRESSANTES_SEM_CRA = 2026;
+// Turma da matrícula mais recente: parte só cursou um período e parte ainda não tem notas.
+// Fica fora da comparação entre turmas, mas continua na posição geral no curso.
+// Normalmente é igual a ANO_BASE.
+const ANO_TURMA_SEM_COMPARACAO = ANO_BASE;
 const TAMANHO_MINIMO_GRUPO = 15;
-const LIMIAR_ZERO_ULTIMO_ANO_SEM_COMPARACAO = 0.90;
-const LIMIAR_CRA_ULTIMO_ANO_COMPARAVEL = 0.25;
 
 function lerCSV(texto){
-  const anoAtual=new Date().getFullYear();
   const registros=[];
   texto.split(/\r?\n/).forEach(linha=>{
     linha=linha.trim();
@@ -1009,27 +1023,23 @@ function lerCSV(texto){
     const digitosAno=partes[0].replace(/\D/g,"");
     if(digitosAno.length===4){
       const a=parseInt(digitosAno,10);
-      if(a>=ANO_MINIMO&&a<=anoAtual) ano=a;
+      if(a>=ANO_MINIMO&&a<=ANO_BASE) ano=a;
     }
     registros.push({ano:ano,cra:nota});
   });
   return registros;
 }
 
+// Recebe apenas registros com ano identificado. Os ingressos anteriores a 2017 (ano em
+// branco) não entram: o ano exato é desconhecido e o grupo é pequeno demais para comparação.
 function construirGrupos(registros){
   const mapa=new Map();
   registros.forEach(r=>{
-    const chave=r.ano===null?"anterior":String(r.ano);
-    if(!mapa.has(chave)) mapa.set(chave,[]);
-    mapa.get(chave).push(r.cra);
+    if(!mapa.has(r.ano)) mapa.set(r.ano,[]);
+    mapa.get(r.ano).push(r.cra);
   });
-  let grupos=[...mapa.entries()].map(([chave,notas])=>({
-    chave, anos: chave==="anterior"?[]:[parseInt(chave,10)], notas
-  })).sort((a,b)=>{
-    if(a.chave==="anterior") return -1;
-    if(b.chave==="anterior") return 1;
-    return a.anos[0]-b.anos[0];
-  });
+  let grupos=[...mapa.entries()].map(([ano,notas])=>({anos:[ano],notas}))
+    .sort((a,b)=>a.anos[0]-b.anos[0]);
   let mudou=true;
   while(mudou&&grupos.length>1){
     mudou=false;
@@ -1038,7 +1048,6 @@ function construirGrupos(registros){
         const alvo=i===0?1:i-1;
         grupos[alvo].notas=grupos[alvo].notas.concat(grupos[i].notas);
         grupos[alvo].anos=grupos[alvo].anos.concat(grupos[i].anos).sort((x,y)=>x-y);
-        grupos[alvo].incluiAnterior=grupos[alvo].incluiAnterior||grupos[i].chave==="anterior"||grupos[i].incluiAnterior;
         grupos.splice(i,1);mudou=true;break;
       }
     }
@@ -1051,35 +1060,9 @@ function construirGrupos(registros){
   return grupos;
 }
 
-function diagnosticarUltimoAno(registros){
-  const anos=[...new Set(registros.map(r=>r.ano).filter(a=>a!==null))].sort((a,b)=>a-b);
-  if(anos.length===0) return null;
-  const ano=anos[anos.length-1];
-  const doAno=registros.filter(r=>r.ano===ano);
-  const total=doAno.length;
-  const zeros=doAno.filter(r=>Math.abs(r.cra)<1e-9).length;
-  const proporcaoZero=zeros/total;
-  const proporcaoPositiva=(total-zeros)/total;
-  return {
-    ano,
-    semComparacao: proporcaoZero>LIMIAR_ZERO_ULTIMO_ANO_SEM_COMPARACAO ||
-      proporcaoPositiva<LIMIAR_CRA_ULTIMO_ANO_COMPARAVEL,
-    comparacaoParcial: proporcaoZero>0 &&
-      proporcaoPositiva>=LIMIAR_CRA_ULTIMO_ANO_COMPARAVEL
-  };
-}
-
-function registrosParaComparacaoPorAno(registros, diagnostico){
-  if(!diagnostico||!diagnostico.semComparacao) return registros;
-  return registros.filter(r=>r.ano!==diagnostico.ano);
-}
-
 function rotuloGrupo(g){
-  if(g.anos.length===0) return "Ingresso anterior a "+ANO_MINIMO;
   const a=g.anos[0],b=g.anos[g.anos.length-1];
-  let r=(a===b)?String(a):(a+"–"+b);
-  if(g.incluiAnterior) r="Até "+b;
-  return r;
+  return (a===b)?String(a):(a+"–"+b);
 }
 
 function estatisticas(v){
@@ -1271,33 +1254,41 @@ function desenharEvolucao(container,grupos){
   container.appendChild(svg);
 }
 
-const registrosOriginais=lerCSV(DADOS_CSV);
-// Em 2026.2, os ingressantes ainda não tinham notas. Por isso, só os registros
-// de 2026 com CRA maior que zero entram nas estimativas; zeros antigos permanecem.
-const registrosExcluidos2026=registrosOriginais.filter(r=>
-  r.ano===ANO_COM_INGRESSANTES_SEM_CRA&&Math.abs(r.cra)<1e-9
+// As estimativas gerais usam a lista completa do curso, inclusive os CRA 0,00
+// (estudantes ainda sem notas lançadas), para que o total coincida com o número
+// de estudantes. O percentil 90 da láurea também usa a lista completa, como o sistema da UFPB.
+const registros=lerCSV(DADOS_CSV);
+const ehZero=r=>Math.abs(r.cra)<1e-9;
+const totalZerosRecente=registros.filter(r=>
+  r.ano===ANO_TURMA_SEM_COMPARACAO&&ehZero(r)
+).length;
+const totalAnteriores=registros.filter(r=>r.ano===null).length;
+// A comparação entre turmas deixa de fora a turma mais recente e os ingressos
+// anteriores a 2017 (ano em branco). Ambos continuam na posição geral no curso.
+const registrosComparacao=registros.filter(r=>
+  r.ano!==null&&r.ano!==ANO_TURMA_SEM_COMPARACAO
 );
-const registros=registrosOriginais.filter(r=>
-  !(r.ano===ANO_COM_INGRESSANTES_SEM_CRA&&Math.abs(r.cra)<1e-9)
-);
-const totalIncluidos2026=registros.filter(r=>r.ano===ANO_COM_INGRESSANTES_SEM_CRA).length;
-const diagnosticoUltimoAno=diagnosticarUltimoAno(registros);
-const registrosComparacao=registrosParaComparacaoPorAno(registros,diagnosticoUltimoAno);
 const grupos=construirGrupos(registrosComparacao);
 const todasNotas=registros.map(r=>r.cra).sort((a,b)=>a-b);
-// O sistema da universidade calcula o percentil 90 com a lista completa,
-// inclusive os CRA 0,00 de 2026. Esse critério não usa o recorte das estimativas gerais.
-const notasPercentil90=registrosOriginais.map(r=>r.cra).sort((a,b)=>a-b);
 const notasGrafico=todasNotas.filter(v=>v>0);
 const totalZeros=todasNotas.length-notasGrafico.length;
 
 const $=id=>document.getElementById(id);
 const selectAno=$("selectAno");
-$("notaRecorte2026").textContent=
-  "Na comparação entre turmas e no CRA médio por grupo de ingresso, entram "+
-  totalIncluidos2026+" estudantes de "+ANO_COM_INGRESSANTES_SEM_CRA+
-  " com CRA maior que 0,00. Os registros com CRA 0,00 desse ano, que incluem os "+
-  "ingressantes de 2026.2, ficam fora.";
+const inputMatricula=$("inputMatricula");
+$("dataAtualizacao").textContent=DATA_ATUALIZACAO;
+$("notaRecorteZeros").textContent=
+  "A posição, o percentil, a mediana, a média e o percentil 90 da láurea usam a lista "+
+  "completa do curso, com "+todasNotas.length+" registros. Entram nela "+totalZeros+
+  " registros com CRA 0,00, dos quais "+totalZerosRecente+" são de "+ANO_TURMA_SEM_COMPARACAO+
+  ", de estudantes que ainda não têm notas lançadas.";
+$("notaRecorteTurmas").textContent=
+  "A comparação entre turmas não inclui a turma de "+ANO_TURMA_SEM_COMPARACAO+
+  ", que ainda não tem histórico suficiente de CRA, nem os "+totalAnteriores+
+  " registros de ingresso anterior a "+ANO_MINIMO+", cujo ano exato não é conhecido. "+
+  "Esses registros continuam na posição geral no curso.";
+["notaExclusaoAnos","notaExclusaoEvolucao"].forEach(id=>$(id).textContent=
+  " Não entram a turma de "+ANO_TURMA_SEM_COMPARACAO+" nem os ingressos anteriores a "+ANO_MINIMO+".");
 ["notaZerosHist","notaZerosAcum"].forEach(id=>$(id).textContent=textoRegistrosZero(totalZeros));
 (function popularSelect(){
   const op0=document.createElement("option");
@@ -1309,20 +1300,23 @@ $("notaRecorte2026").textContent=
     selectAno.appendChild(op);
   });
 })();
+// Matrícula e ano manual se dispensam: preencher um limpa o outro.
+inputMatricula.addEventListener("input",()=>{if(inputMatricula.value.trim()!=="")selectAno.value="";});
+selectAno.addEventListener("change",()=>{if(selectAno.value!=="")inputMatricula.value="";});
 
 function grupoDaMatricula(mat){
   const dig=mat.replace(/\D/g,"");
+  if(dig.startsWith("1")) return {anterior:true};
   if(dig.length<4)
-    return {erro:"Informe os quatro primeiros dígitos da matrícula ou escolha o ano manualmente no campo ao lado."};
+    return {erro:"Informe os quatro primeiros dígitos da matrícula ou escolha o ano da matrícula no campo abaixo."};
   const ano=parseInt(dig.slice(0,4),10);
-  const anoAtual=new Date().getFullYear();
-  if(!(ano>=ANO_MINIMO&&ano<=anoAtual)){
-    return {erro:"Matrículas iniciadas por 1 são anteriores a 2019 nesta base. Escolha o ano manualmente no campo ao lado."};
+  if(!(ano>=ANO_MINIMO&&ano<=ANO_BASE)){
+    return {erro:"A matrícula informada não corresponde a nenhum ano desta base ("+ANO_MINIMO+" a "+ANO_BASE+
+      "). Confira os quatro primeiros dígitos ou escolha o ano da matrícula no campo abaixo."};
   }
-  if(diagnosticoUltimoAno&&diagnosticoUltimoAno.semComparacao&&ano===diagnosticoUltimoAno.ano)
-    return {semComparacao:true,ano};
+  if(ano===ANO_TURMA_SEM_COMPARACAO) return {semComparacao:true,ano};
   const g=grupos.find(gr=>gr.anos.includes(ano));
-  if(!g) return {erro:"O ano "+ano+" não consta na base atual. Escolha o ano manualmente no campo ao lado."};
+  if(!g) return {erro:"O ano "+ano+" não consta na base atual. Escolha o ano da matrícula no campo abaixo."};
   return {grupo:g};
 }
 
@@ -1337,6 +1331,8 @@ function interpretarNota(texto){
   const digitos=t.replace(/\D/g,"");
   if(digitos!==t||digitos.length<2||digitos.length>4)
     return {erro:"Não foi possível interpretar esse valor. Digite com vírgula ou ponto (ex.: 7,43) ou só os dígitos, sem separador (ex.: 743 para 7,43 ou 79 para 7,90)."};
+  // "10" e "100" são lidos como CRA 10,00, e não como 1,00.
+  if(digitos==="10"||digitos==="100") return {valor:10};
   const parteInteira=digitos.length===2?digitos.slice(0,1):digitos.slice(0,digitos.length-2);
   const parteDecimal=digitos.length===2?digitos.slice(1)+"0":digitos.slice(-2);
   const v=parseFloat(parteInteira+"."+parteDecimal);
@@ -1356,9 +1352,9 @@ function consultar(){
   const notaFormatada=nota.toFixed(2).replace(".",",");
   $("notaEntendida").innerHTML="CRA considerado: <strong>"+notaFormatada+"</strong>. Se não for o valor correto, corrija o campo e consulte novamente.";
   let grupoAluno=null;
-  let anoAlunoSemComparacao=null;
+  let semComparacaoPorTurma=false;
   const avisosLimite=[];
-  const mat=$("inputMatricula").value.trim();
+  const mat=inputMatricula.value.trim();
   const anoManual=selectAno.value;
   if(anoManual!==""){
     grupoAluno=grupos[parseInt(anoManual,10)];
@@ -1367,24 +1363,21 @@ function consultar(){
     if(r.erro){
       $("campoAnoManual").style.display="block";
       msg.textContent=r.erro;msg.classList.add("visivel");
-      avisosLimite.push("Não foi possível estimar sua turma de ingresso a partir da matrícula informada. O resultado abaixo mostra apenas a posição no curso como um todo. Para comparar com sua turma, escolha o ano manualmente no campo que apareceu no formulário e consulte novamente.");
+      avisosLimite.push("Não foi possível estimar sua turma de ingresso a partir da matrícula informada. O resultado abaixo mostra apenas a posição no curso como um todo. Para comparar com sua turma, escolha o ano da matrícula no campo que apareceu no formulário e consulte novamente.");
+    }else if(r.anterior){
+      semComparacaoPorTurma=true;
+      avisosLimite.push("Matrículas iniciadas por 1 correspondem a ingresso anterior a "+ANO_MINIMO+". Para esse grupo não há comparação por turma, porque o ano exato de ingresso não é conhecido e o número de estudantes é pequeno demais. Abaixo aparece a posição estimada no curso.");
     }else if(r.semComparacao){
-      anoAlunoSemComparacao=r.ano;
+      semComparacaoPorTurma=true;
+      avisosLimite.push("A turma de "+r.ano+" não entra na comparação entre turmas, porque parte dela cursou apenas um período e parte ainda não tem notas lançadas. Abaixo aparece a posição estimada no curso.");
     }else grupoAluno=r.grupo;
   }
-  $("inputMatricula").value=mat;
+  inputMatricula.value=mat;
 
-  if(anoAlunoSemComparacao){
-    avisosLimite.push("Sua turma ainda não tem histórico suficiente de CRA para comparação. Abaixo aparece sua posição estimada no curso.");
-  }else if(diagnosticoUltimoAno&&diagnosticoUltimoAno.semComparacao){
-    avisosLimite.push("A comparação por turma não inclui "+diagnosticoUltimoAno.ano+", porque essa turma ainda não tem histórico suficiente de CRA.");
-  }else if(diagnosticoUltimoAno&&diagnosticoUltimoAno.comparacaoParcial){
-    avisosLimite.push("A turma mais recente foi incluída na comparação, mas ainda possui estudantes com CRA 0,00 porque parte das notas ainda não foi consolidada.");
-  }
-  if(grupoAluno&&(grupoAluno.anos.length>1||grupoAluno.incluiAnterior)){
+  if(grupoAluno&&grupoAluno.anos.length>1){
     avisosLimite.push("Sua turma de ingresso ("+grupoAluno.rotulo+") foi reunida com outra(s) turma(s) nesta comparação, para preservar uma estimativa segura e anônima. O resultado abaixo reflete o conjunto reunido, não apenas os colegas do seu ano.");
   }
-  if(Math.abs(nota)<1e-9&&!anoAlunoSemComparacao){
+  if(Math.abs(nota)<1e-9&&!semComparacaoPorTurma){
     avisosLimite.push("Um CRA de 0,00 pode indicar que o coeficiente ainda não foi formado. A posição estimada abaixo pode não ter significado real nesse caso.");
   }
   const avisoEl=$("avisoCasoLimite");
@@ -1397,8 +1390,8 @@ function consultar(){
 
   const pGeral=percentil(todasNotas,nota);
   const posGeral=posicaoAproximada(todasNotas,nota);
-  const corte90=valorDeCorte(notasPercentil90,90);
-  const primeiraNotaAcimaCorte=primeiroValorAcima(notasPercentil90,corte90);
+  const corte90=valorDeCorte(todasNotas,90);
+  const primeiraNotaAcimaCorte=primeiroValorAcima(todasNotas,corte90);
   const acimaDoCorte=nota>corte90;
   const cartoes=$("cartoes");cartoes.innerHTML="";
 
