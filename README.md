@@ -33,15 +33,15 @@ Matrículas iniciadas por 1 correspondem a ingresso anterior a 2017. Esse grupo,
 
 ## Limites e atualização dos dados
 
-Os resultados são estimativas calculadas a partir de dados agregados, atualizados até **23/08/2026**. Eles não substituem os registros oficiais da UFPB ou as informações disponíveis no SIGAA.
+Os resultados são estimativas calculadas a partir de dados agregados, atualizados até a data informada na página. Eles não substituem os registros oficiais da UFPB ou as informações disponíveis no SIGAA.
 
 Em caso de divergência, entre em contato com a Coordenação do Bacharelado em Direito — Unidade Santa Rita: [direitosantarita@ccj.ufpb.br](mailto:direitosantarita@ccj.ufpb.br).
 
 ## Manutenção
 
-Os dados são mantidos diretamente em `index.html`, no bloco `DADOS_CSV`. Ao atualizá-los, preservar apenas as colunas `ano` e `cra`; não incluir nomes nem matrículas completas. Ano em branco indica matrícula iniciada por 1 (ingresso anterior a 2017).
+Para atualizar a consulta, troque apenas o arquivo `dados.js`. Ele reúne a tabela de ano e CRA, o ano da lista, a data de atualização e a turma mais recente, e o comentário no início dele explica cada item e os formatos de tabela aceitos. O `index.html` não precisa ser alterado. Na tabela, não incluir nomes nem matrículas completas.
 
-A próxima atualização deve ocorrer entre fevereiro e março de 2027, com a lista de 2027. Nela, além de `DADOS_CSV`, é preciso trocar `ANO_BASE` para 2027, atualizar `DATA_ATUALIZACAO` e a data citada neste README e revisar `ANO_TURMA_SEM_COMPARACAO`. O comentário no início do script de `index.html` lista esses pontos.
+A próxima atualização deve ocorrer entre fevereiro e março de 2027, com a lista de 2027.
 
 ## Desenvolvimento
 
