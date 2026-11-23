@@ -213,7 +213,7 @@ footer{
 
   <section class="consulta" aria-labelledby="tituloConsulta">
     <h2 id="tituloConsulta">Consulta</h2>
-    <div class="campos">
+    <form id="formConsulta" class="campos" novalidate>
       <div class="campo campo-cra">
         <label for="inputCra">Seu CRA</label>
         <input type="text" id="inputCra" inputmode="decimal" placeholder="Ex.: 7,43, 743 ou 79" autocomplete="off">
@@ -230,9 +230,9 @@ footer{
         <div class="ajuda">Escolha o ano que aparece nos quatro primeiros dígitos da matrícula. Com o calendário atrasado, ele pode ser diferente do ano em que as aulas começaram: parte da turma 2025.2, por exemplo, começou as aulas em 2026 com matrícula de 2025. Escolher o ano aqui dispensa a matrícula, e informar a matrícula dispensa o ano.</div>
       </div>
       <div class="campo campo-acao">
-        <button id="btnConsultar">Ver posição estimada</button>
+        <button id="btnConsultar" type="submit">Ver posição estimada</button>
       </div>
-    </div>
+    </form>
     <div class="erro" id="msgErro" role="alert"></div>
   </section>
 
@@ -343,37 +343,50 @@ function rotuloGrupo(g){
   return (a===b)?String(a):(a+"–"+b);
 }
 
-function estatisticas(v){
-  const n=v.length;
-  const soma=v.reduce((s,x)=>s+x,0);
-  const media=soma/n;
-  const q=p=>{const pos=(n-1)*p,base=Math.floor(pos),resto=pos-base;
-    return v[base]+(v[Math.min(base+1,n-1)]-v[base])*resto;};
-  return {n,min:v[0],max:v[n-1],media,mediana:q(.5),q1:q(.25),q3:q(.75)};
-}
-
-function percentil(vOrdenado,nota){
-  let menores=0,iguais=0;
-  for(const x of vOrdenado){if(x<nota)menores++;else if(Math.abs(x-nota)<1e-9)iguais++;}
-  return (menores+iguais/2)/vOrdenado.length*100;
-}
-
-function posicaoAproximada(vOrdenado,nota){
-  let melhores=0,iguais=0;
-  for(const x of vOrdenado){if(x>nota)melhores++;else if(Math.abs(x-nota)<1e-9)iguais++;}
-  const de=melhores+1,ate=melhores+Math.max(iguais,1);
-  return {de,ate,total:vOrdenado.length};
-}
-
 function valorDeCorte(vOrdenado,p){
   const n=vOrdenado.length;
+  if(n===0) return 0;
   const pos=(n-1)*(p/100);
   const base=Math.floor(pos),resto=pos-base;
   return vOrdenado[base]+(vOrdenado[Math.min(base+1,n-1)]-vOrdenado[base])*resto;
 }
 
+function estatisticas(v){
+  const n=v.length;
+  if(n===0) return {n:0,min:0,max:0,media:0,mediana:0,q1:0,q3:0};
+  const soma=v.reduce((s,x)=>s+x,0);
+  const media=soma/n;
+  return {
+    n,min:v[0],max:v[n-1],media,
+    mediana:valorDeCorte(v,50),q1:valorDeCorte(v,25),q3:valorDeCorte(v,75)
+  };
+}
+
+function percentil(vOrdenado,nota){
+  if(vOrdenado.length===0) return 0;
+  let menores=0,iguais=0;
+  for(const x of vOrdenado){
+    if(Math.abs(x-nota)<1e-9) iguais++;
+    else if(x<nota) menores++;
+  }
+  return (menores+iguais/2)/vOrdenado.length*100;
+}
+
+function posicaoAproximada(vOrdenado,nota){
+  const total=vOrdenado.length;
+  if(total===0) return {de:0,ate:0,total:0,abaixoMinimo:false};
+  let melhores=0,iguais=0;
+  for(const x of vOrdenado){
+    if(Math.abs(x-nota)<1e-9) iguais++;
+    else if(x>nota) melhores++;
+  }
+  if(melhores>=total) return {de:total,ate:total,total,abaixoMinimo:true};
+  const de=melhores+1,ate=Math.min(melhores+Math.max(iguais,1),total);
+  return {de,ate,total,abaixoMinimo:false};
+}
+
 function primeiroValorAcima(vOrdenado,limite){
-  for(const x of vOrdenado) if(x>limite) return x;
+  for(const x of vOrdenado) if(x>limite+1e-9) return x;
   return null;
 }
 
@@ -388,6 +401,9 @@ function textoRegistrosZero(total){
 
 function textoPosicao(pos, universo){
   const termoRegistro=pos.total===1?"registro":"registros";
+  if(pos.abaixoMinimo){
+    return "Abaixo do menor CRA registrado entre "+pos.total+" "+termoRegistro+" "+universo+".";
+  }
   if(pos.de===pos.ate){
     return "Posição estimada na "+pos.de+"ª colocação entre "
       +pos.total+" "+termoRegistro+" "+universo+".";
@@ -404,14 +420,14 @@ function el(tag,attrs,texto){
   if(texto!=null)e.textContent=texto;
   return e;
 }
-function svgBase(largura,altura){
-  return el("svg",{viewBox:`0 0 ${largura} ${altura}`,role:"img"});
+function svgBase(largura,altura,rotulo){
+  return el("svg",{viewBox:`0 0 ${largura} ${altura}`,role:"img","aria-label":rotulo});
 }
 
 function desenharHistograma(container,notasVisual,nota){
   container.innerHTML="";
   const L=760,A=300,mE=44,mD=16,mT=14,mB=34;
-  const svg=svgBase(L,A);
+  const svg=svgBase(L,A,"Histograma da distribuição geral do CRA no curso");
   const nBins=20,min=0,max=10,passo=(max-min)/nBins;
   const bins=new Array(nBins).fill(0);
   notasVisual.forEach(v=>{let i=Math.min(nBins-1,Math.floor((v-min)/passo));bins[i]++;});
@@ -441,7 +457,7 @@ function desenharHistograma(container,notasVisual,nota){
 function desenharAcumulada(container,vOrdenado,notasVisual,nota){
   container.innerHTML="";
   const L=760,A=300,mE=52,mD=16,mT=14,mB=34;
-  const svg=svgBase(L,A);
+  const svg=svgBase(L,A,"Curva acumulada estimada do CRA no curso");
   const x=v=>mE+(v-0)/10*(L-mE-mD);
   const y=p=>A-mB-(p/100)*(A-mT-mB);
   svg.appendChild(el("line",{x1:mE,y1:A-mB,x2:L-mD,y2:A-mB,class:"eixo"}));
@@ -465,7 +481,8 @@ function desenharAcumulada(container,vOrdenado,notasVisual,nota){
     svg.appendChild(el("line",{x1:x(nota),y1:y(p),x2:x(nota),y2:A-mB,class:"marcador-linha"}));
     svg.appendChild(el("circle",{cx:x(nota),cy:y(p),r:5,fill:"#7A1F1F"}));
     const anc=nota>8?"end":"start",dx=nota>8?-8:8;
-    svg.appendChild(el("text",{x:x(nota)+dx,y:y(p)-8,"text-anchor":anc,class:"marcador-txt"},
+    const yTxt=Math.max(mT+12,y(p)-8);
+    svg.appendChild(el("text",{x:x(nota)+dx,y:yTxt,"text-anchor":anc,class:"marcador-txt"},
       "≈ "+p.toFixed(0)+"º percentil (est.)"));
   }
   container.appendChild(svg);
@@ -474,7 +491,7 @@ function desenharAcumulada(container,vOrdenado,notasVisual,nota){
 function desenharAnos(container,grupos,grupoAluno,nota){
   container.innerHTML="";
   const L=760,A=320,mE=64,mD=16,mT=30,mB=56;
-  const svg=svgBase(L,A);
+  const svg=svgBase(L,A,"Comparação da distribuição do CRA entre turmas de ingresso");
   const y=v=>A-mB-(v-0)/10*(A-mT-mB);
   for(let v=0;v<=10;v+=2){
     svg.appendChild(el("line",{x1:mE,y1:y(v),x2:L-mD,y2:y(v),class:"eixo",opacity:".45"}));
@@ -503,7 +520,7 @@ function desenharAnos(container,grupos,grupoAluno,nota){
 function desenharEvolucao(container,grupos){
   container.innerHTML="";
   const L=760,A=280,mE=52,mD=52,mT=18,mB=52;
-  const svg=svgBase(L,A);
+  const svg=svgBase(L,A,"CRA médio estimado por grupo de ingresso");
   const medias=grupos.map(g=>g.stats.media);
   const minM=Math.max(0,Math.floor(Math.min(...medias))-1);
   const maxM=Math.min(10,Math.ceil(Math.max(...medias))+1);
@@ -526,7 +543,7 @@ function desenharEvolucao(container,grupos){
     else if(n>1&&i===n-1) anc="end";
     svg.appendChild(el("circle",{cx:cx,cy:y(g.stats.media),r:4.5,fill:"#7A1F1F"}));
     svg.appendChild(el("text",{x:cx,y:y(g.stats.media)-10,"text-anchor":anc,class:"tick-txt"},
-      g.stats.media.toFixed(2)));
+      formatarCRA(g.stats.media)));
     svg.appendChild(el("text",{x:cx,y:A-mB+18,"text-anchor":anc,class:"tick-txt"},g.rotulo));
   });
   container.appendChild(svg);
@@ -550,6 +567,9 @@ const grupos=construirGrupos(registrosComparacao);
 const todasNotas=registros.map(r=>r.cra).sort((a,b)=>a-b);
 const notasGrafico=todasNotas.filter(v=>v>0);
 const totalZeros=todasNotas.length-notasGrafico.length;
+const statsGeral=estatisticas(todasNotas);
+const corte90=valorDeCorte(todasNotas,90);
+const primeiraNotaAcimaCorte=primeiroValorAcima(todasNotas,corte90);
 
 const $=id=>document.getElementById(id);
 const selectAno=$("selectAno");
@@ -602,19 +622,21 @@ function interpretarNota(texto){
   const t=texto.trim();
   if(t==="") return {erro:"Digite o seu CRA."};
   if(/[.,]/.test(t)){
+    if(!/^\d+[.,]\d+$/.test(t))
+      return {erro:"Digite um CRA válido, entre 0 e 10 (ex.: 7,43 ou 7.43)."};
     const v=parseFloat(t.replace(",","."));
-    if(isNaN(v)||v<0||v>10) return {erro:"Digite um CRA válido, entre 0 e 10."};
+    if(!Number.isFinite(v)||v<0||v>10) return {erro:"Digite um CRA válido, entre 0 e 10."};
     return {valor:v};
   }
-  const digitos=t.replace(/\D/g,"");
-  if(digitos!==t||digitos.length<2||digitos.length>4)
+  if(!/^\d+$/.test(t)||t.length>4)
     return {erro:"Não foi possível interpretar esse valor. Digite com vírgula ou ponto (ex.: 7,43) ou só os dígitos, sem separador (ex.: 743 para 7,43 ou 79 para 7,90)."};
+  if(t.length===1) return {valor:parseInt(t,10)};
   // "10" e "100" são lidos como CRA 10,00, e não como 1,00.
-  if(digitos==="10"||digitos==="100") return {valor:10};
-  const parteInteira=digitos.length===2?digitos.slice(0,1):digitos.slice(0,digitos.length-2);
-  const parteDecimal=digitos.length===2?digitos.slice(1)+"0":digitos.slice(-2);
+  if(t==="10"||t==="100") return {valor:10};
+  const parteInteira=t.length===2?t.slice(0,1):t.slice(0,t.length-2);
+  const parteDecimal=t.length===2?t.slice(1)+"0":t.slice(-2);
   const v=parseFloat(parteInteira+"."+parteDecimal);
-  if(isNaN(v)||v<0||v>10) return {erro:"Digite um CRA válido, entre 0 e 10."};
+  if(!Number.isFinite(v)||v<0||v>10) return {erro:"Digite um CRA válido, entre 0 e 10."};
   return {valor:v};
 }
 
@@ -624,11 +646,19 @@ function consultar(){
   const interpretada=interpretarNota(brutoNota);
   if(interpretada.erro){
     msg.textContent=interpretada.erro;
-    msg.classList.add("visivel");return;
+    msg.classList.add("visivel");
+    $("resultado").classList.remove("visivel");
+    return;
   }
   const nota=interpretada.valor;
-  const notaFormatada=nota.toFixed(2).replace(".",",");
-  $("notaEntendida").innerHTML="CRA considerado: <strong>"+notaFormatada+"</strong>. Se não for o valor correto, corrija o campo e consulte novamente.";
+  const notaEl=$("notaEntendida");
+  notaEl.textContent="";
+  notaEl.appendChild(document.createTextNode("CRA considerado: "));
+  const strongNota=document.createElement("strong");
+  strongNota.textContent=formatarCRA(nota);
+  notaEl.appendChild(strongNota);
+  notaEl.appendChild(document.createTextNode(". Se não for o valor correto, corrija o campo e consulte novamente."));
+
   let grupoAluno=null;
   let semComparacaoPorTurma=false;
   const avisosLimite=[];
@@ -659,19 +689,25 @@ function consultar(){
     avisosLimite.push("Um CRA de 0,00 pode indicar que o coeficiente ainda não foi formado. A posição estimada abaixo pode não ter significado real nesse caso.");
   }
   const avisoEl=$("avisoCasoLimite");
+  avisoEl.textContent="";
   if(avisosLimite.length>0){
-    avisoEl.innerHTML=avisosLimite.map(a=>"<p><strong>Atenção.</strong> "+a+"</p>").join("");
+    avisosLimite.forEach(a=>{
+      const p=document.createElement("p");
+      const st=document.createElement("strong");
+      st.textContent="Atenção. ";
+      p.appendChild(st);
+      p.appendChild(document.createTextNode(a));
+      avisoEl.appendChild(p);
+    });
     avisoEl.classList.add("visivel");
   }else{
-    avisoEl.classList.remove("visivel");avisoEl.innerHTML="";
+    avisoEl.classList.remove("visivel");
   }
 
   const pGeral=percentil(todasNotas,nota);
   const posGeral=posicaoAproximada(todasNotas,nota);
-  const corte90=valorDeCorte(todasNotas,90);
-  const primeiraNotaAcimaCorte=primeiroValorAcima(todasNotas,corte90);
-  const acimaDoCorte=nota>corte90;
-  const cartoes=$("cartoes");cartoes.innerHTML="";
+  const acimaDoCorte=nota>corte90+1e-9;
+  const cartoes=$("cartoes");cartoes.textContent="";
 
   cartoes.appendChild(cartao(
     "No curso (todos os grupos)","Aprox. "+pGeral.toFixed(0)+"º percentil",
@@ -695,19 +731,22 @@ function consultar(){
 
   cartoes.appendChild(cartao(
     "Mediana do curso",
-    formatarCRA(estatisticas(todasNotas).mediana),
+    formatarCRA(statsGeral.mediana),
     "A mediana é o valor central da lista de CRA: metade dos estudantes tem CRA acima dela e metade abaixo. "
-    +"Média "+formatarCRA(estatisticas(todasNotas).media)+" · mínimo "
-    +formatarCRA(todasNotas[0])+" · máximo "+formatarCRA(todasNotas[todasNotas.length-1])
-    +" · "+todasNotas.length+" registros.","geral"));
+    +"Média "+formatarCRA(statsGeral.media)+" · mínimo "
+    +formatarCRA(statsGeral.min)+" · máximo "+formatarCRA(statsGeral.max)
+    +" · "+statsGeral.n+" registros.","geral"));
 
   desenharHistograma($("gHistograma"),notasGrafico,nota);
   desenharAcumulada($("gAcumulada"),todasNotas,notasGrafico,nota);
-  desenharAnos($("gAnos"),grupos,grupoAluno,nota);
-  desenharEvolucao($("gEvolucao"),grupos);
 
-  $("blocoAnos").style.display=grupos.length>1?"block":"none";
-  $("blocoEvolucao").style.display=grupos.length>1?"block":"none";
+  const exibirTurmas=grupos.length>1;
+  $("blocoAnos").style.display=exibirTurmas?"block":"none";
+  $("blocoEvolucao").style.display=exibirTurmas?"block":"none";
+  if(exibirTurmas){
+    desenharAnos($("gAnos"),grupos,grupoAluno,nota);
+    desenharEvolucao($("gEvolucao"),grupos);
+  }
 
   $("resultado").classList.add("visivel");
   $("resultado").scrollIntoView({behavior:"smooth",block:"start"});
@@ -716,15 +755,26 @@ function consultar(){
 function cartao(rotulo,valor,detalhe,tipo){
   const d=document.createElement("div");
   d.className="cartao"+(tipo==="ano"?" ano":"");
-  d.innerHTML='<div class="rotulo">'+rotulo+' <span class="selo">estimado</span></div>'
-    +'<div class="valor">'+valor+'</div>'
-    +'<div class="detalhe">'+detalhe+'</div>';
+  const r=document.createElement("div");
+  r.className="rotulo";
+  r.appendChild(document.createTextNode(rotulo+" "));
+  const selo=document.createElement("span");
+  selo.className="selo";
+  selo.textContent="estimado";
+  r.appendChild(selo);
+  const v=document.createElement("div");
+  v.className="valor";
+  v.textContent=valor;
+  const det=document.createElement("div");
+  det.className="detalhe";
+  det.textContent=detalhe;
+  d.appendChild(r);
+  d.appendChild(v);
+  d.appendChild(det);
   return d;
 }
 
-$("btnConsultar").addEventListener("click",consultar);
-["inputCra","inputMatricula"].forEach(id=>
-  $(id).addEventListener("keydown",e=>{if(e.key==="Enter")consultar();}));
+$("formConsulta").addEventListener("submit",e=>{e.preventDefault();consultar();});
 </script>
 </body>
 </html>
